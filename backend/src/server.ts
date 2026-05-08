@@ -29,12 +29,16 @@ app.use(cors({
 
 app.use(express.json());
 
+app.set('trust proxy', 1);
+
 app.use(session({
   secret: env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: env.NODE_ENV === 'production'
   }
 }));
 

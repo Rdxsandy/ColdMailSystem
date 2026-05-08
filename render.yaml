@@ -29,3 +29,5 @@ services:
         sync: false
       - key: FRONTEND_URL
         value: https://cold-mail-system-beryl.vercel.app
+      - key: BACKEND_URL
+        value: https://coldmail-backend-bw0h.onrender.com
