@@ -39,7 +39,7 @@ export const emailWorker = new Worker(emailQueueName, async (job: Job) => {
 
   // 2. Send the email via Mock SMTP
   try {
-    await sendEmail(to, subject, text, from || env.ETHEREAL_USER);
+    await sendEmail(to, subject, text, from || env.SMTP_USER);
 
     // 3. Mark as sent in Database
     await prisma.emailJob.update({

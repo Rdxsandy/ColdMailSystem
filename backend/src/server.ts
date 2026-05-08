@@ -32,7 +32,7 @@ app.use(passport.session());
 app.use('/auth', authRoutes);
 app.use('/emails', emailRoutes);
 
-app.get('/health', (req, res) => {
+app.get('/health', (req: import('express').Request, res: import('express').Response) => {
   res.json({ status: 'ok' });
 });
 
