@@ -33,7 +33,7 @@ export const verifyToken = (req: Request, res: Response) => {
     const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
 
     // Log the user into the session (this sets a proper first-party session cookie)
-    req.session.userId = payload.userId;
+    (req.session as any).userId = payload.userId;
     req.session.save((err) => {
       if (err) {
         return res.status(500).json({ message: 'Session save failed' });
