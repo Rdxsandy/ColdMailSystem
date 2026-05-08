@@ -1,0 +1,41 @@
+import express from 'express';
+import cors from 'cors';
+import session from 'express-session';
+import passport from './config/passport';
+import { env } from './config/env';
+import authRoutes from './routes/authRoutes';
+import emailRoutes from './routes/emailRoutes';
+import './workers/emailWorker'; // Initialize worker
+
+const app = express();
+
+app.use(cors({
+  origin: env.FRONTEND_URL,
+  credentials: true
+}));
+
+app.use(express.json());
+
+app.use(session({
+  secret: env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Routes
+app.use('/auth', authRoutes);
+app.use('/emails', emailRoutes);
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.listen(env.PORT, () => {
+  console.log(`Server is running on port ${env.PORT}`);
+});

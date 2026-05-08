@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  googleId  String   @unique
+  name      String
+  email     String   @unique
+  avatar    String?
+  createdAt DateTime @default(now())
+  jobs      EmailJob[]
+}
+
+model EmailJob {
+  id             String    @id @default(uuid())
+  recipientEmail String
+  subject        String
+  body           String
+  scheduledTime  DateTime
+  sentTime       DateTime?
+  status         String    @default("scheduled") // scheduled, queued, sent, failed
+  retryCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  senderId       String
+  sender         User      @relation(fields: [senderId], references: [id])
+}
