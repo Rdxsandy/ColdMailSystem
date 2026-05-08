@@ -35,10 +35,11 @@ app.use(session({
   secret: env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Required for Render to trust the secure cookie over proxy
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: env.NODE_ENV === 'production'
+    sameSite: (env.NODE_ENV === 'production' || process.env.RENDER) ? 'none' : 'lax',
+    secure: (env.NODE_ENV === 'production' || process.env.RENDER) ? true : false
   }
 }));
 
