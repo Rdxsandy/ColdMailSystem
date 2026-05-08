@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { API_BASE } from '../config/api';
 
 export const ScheduledEmails = () => {
   const [emails, setEmails] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export const ScheduledEmails = () => {
   useEffect(() => {
     const fetchEmails = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/emails/scheduled', { withCredentials: true });
+        const res = await axios.get(`${API_BASE}/emails/scheduled`, { withCredentials: true });
         setEmails(res.data);
       } catch (error) {
         console.error('Error fetching scheduled emails', error);

@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '../config/api';
 
 // ── Toolbar button ──────────────────────────────────────────────────────────
 const TB = ({ children, title, onClick }: { children: React.ReactNode; title?: string; onClick?: () => void }) => (
@@ -101,7 +102,7 @@ export const Dashboard = () => {
         });
         return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
       });
-      await axios.post('http://localhost:5000/emails/schedule', { emails }, { withCredentials: true });
+      await axios.post(`${API_BASE}/emails/schedule`, { emails }, { withCredentials: true });
       toast.success('Emails scheduled successfully!');
       setSubject(''); setBody(''); setCsvData([]);
     } catch {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config/api';
 
 interface User {
   id: string;
@@ -23,7 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/auth/me', { withCredentials: true });
+      const res = await axios.get(`${API_BASE}/auth/me`, { withCredentials: true });
       setUser(res.data);
     } catch (error) {
       setUser(null);
@@ -37,11 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithGoogle = () => {
-    window.location.href = 'http://localhost:5000/auth/google';
+    window.location.href = `${API_BASE}/auth/google`;
   };
 
   const logout = async () => {
-    await axios.post('http://localhost:5000/auth/logout', {}, { withCredentials: true });
+    await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true });
     setUser(null);
   };
 
