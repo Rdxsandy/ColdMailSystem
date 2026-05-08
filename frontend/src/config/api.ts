@@ -1,2 +1,4 @@
-// Central API base URL — reads from Vite env variable in production, falls back to localhost in dev
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Central API base URL — dynamically checks hostname to avoid Vercel env variable injection issues
+export const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000'
+  : 'https://coldmail-backend-bw0h.onrender.com';
