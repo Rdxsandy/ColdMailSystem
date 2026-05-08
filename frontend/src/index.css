@@ -1,21 +1,179 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @theme {
-  --color-primary: #3B82F6;
-  --color-secondary: #1F2937;
-  --color-background: #0B0F19;
-  --color-surface: #111827;
+  --color-brand: #17AC4E;
+  --color-brand-hover: #13943f;
+  --color-brand-light: #E8F8EF;
+  --color-sidebar: #1A1A1A;
+  --color-sidebar-icon: #6B7280;
+  --color-sidebar-icon-active: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-bg: #F3F4F6;
+  --color-border: #E5E7EB;
+  --color-text: #111827;
+  --color-muted: #6B7280;
+  --color-input-bg: #F9FAFB;
 }
 
-@layer base {
-  body {
-    @apply bg-background text-white antialiased;
-  }
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@layer utilities {
-  .glass-panel {
-    @apply bg-surface/50 backdrop-blur-xl border border-white/10 shadow-2xl;
-  }
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #F3F4F6;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+/* Card */
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+}
+
+/* Input */
+.input {
+  width: 100%;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+
+.input:focus {
+  border-color: #17AC4E;
+  box-shadow: 0 0 0 3px rgba(23, 172, 78, 0.1);
+}
+
+.input::placeholder {
+  color: #9CA3AF;
+}
+
+/* Btn green */
+.btn-green {
+  background: #17AC4E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-family: 'Inter', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-green:hover { background: #13943f; }
+.btn-green:active { transform: scale(0.98); }
+.btn-green:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Btn outline */
+.btn-outline {
+  background: transparent;
+  color: #374151;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: 'Inter', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-outline:hover { background: #F3F4F6; border-color: #D1D5DB; }
+
+/* Tag */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #E8F8EF;
+  color: #15803D;
+  border: 1px solid #86EFAC;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Sidebar nav */
+.sidebar-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: #6B7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-icon:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.sidebar-icon.active { background: #17AC4E; color: #fff; }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-green { background: #DCFCE7; color: #15803D; }
+.badge-blue  { background: #DBEAFE; color: #1D4ED8; }
+.badge-red   { background: #FEE2E2; color: #B91C1C; }
+
+/* Editor toolbar */
+.toolbar-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #6B7280;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.1s, color 0.1s;
+  border: none;
+  background: transparent;
+}
+.toolbar-btn:hover { background: #F3F4F6; color: #111827; }
+
+/* Divider */
+.divider { height: 1px; background: #E5E7EB; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.2s ease; }

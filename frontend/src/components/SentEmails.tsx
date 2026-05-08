@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { MailCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export const SentEmails = () => {
   const [emails, setEmails] = useState<any[]>([]);
@@ -24,46 +24,69 @@ export const SentEmails = () => {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Sent Emails</h1>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Sent Emails</h1>
+        <span style={{ fontSize: 13, color: '#6B7280', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 20, padding: '4px 12px' }}>
+          {emails.length} sent
+        </span>
+      </div>
 
-      <div className="glass-panel rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+      <div className="card" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr className="border-b border-white/10 bg-black/20">
-                <th className="px-6 py-4 font-medium text-gray-400">Recipient</th>
-                <th className="px-6 py-4 font-medium text-gray-400">Subject</th>
-                <th className="px-6 py-4 font-medium text-gray-400">Sent Time</th>
-                <th className="px-6 py-4 font-medium text-gray-400">Status</th>
+              <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+                {['Recipient', 'Subject', 'Sent Time', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '12px 20px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-400">Loading...</td>
+                  <td colSpan={4} style={{ padding: '40px 20px', textAlign: 'center', color: '#9CA3AF' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <div style={{ width: 16, height: 16, border: '2px solid #E5E7EB', borderTopColor: '#17AC4E', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      Loading...
+                    </div>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </td>
                 </tr>
               ) : emails.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
-                    <MailCheck size={40} className="mx-auto mb-4 opacity-20" />
-                    <p>No emails sent yet.</p>
+                  <td colSpan={4} style={{ padding: '60px 20px', textAlign: 'center', color: '#9CA3AF' }}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" style={{ display: 'block', margin: '0 auto 12px' }}>
+                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>No sent emails yet</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13 }}>Emails sent from campaigns will appear here</p>
                   </td>
                 </tr>
               ) : (
-                emails.map((email: any) => (
-                  <tr key={email.id} className="hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4">{email.recipientEmail}</td>
-                    <td className="px-6 py-4 text-gray-300">{email.subject}</td>
-                    <td className="px-6 py-4 text-gray-400">
-                      {email.sentTime ? format(new Date(email.sentTime), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                emails.map((email: any, i: number) => (
+                  <tr
+                    key={email.id}
+                    style={{
+                      borderBottom: i < emails.length - 1 ? '1px solid #F3F4F6' : 'none',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{ padding: '14px 20px', color: '#374151', fontWeight: 500 }}>{email.recipientEmail}</td>
+                    <td style={{ padding: '14px 20px', color: '#6B7280', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.subject}</td>
+                    <td style={{ padding: '14px 20px', color: '#6B7280', whiteSpace: 'nowrap' }}>
+                      {email.sentTime ? format(new Date(email.sentTime), 'MMM dd, yyyy · HH:mm') : '—'}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                        email.status === 'sent' 
-                          ? 'bg-green-500/20 text-green-400 border-green-500/20' 
-                          : 'bg-red-500/20 text-red-400 border-red-500/20'
-                      }`}>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span className={`badge ${email.status === 'sent' ? 'badge-green' : 'badge-red'}`}>
                         {email.status}
                       </span>
                     </td>
@@ -74,6 +97,6 @@ export const SentEmails = () => {
           </table>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

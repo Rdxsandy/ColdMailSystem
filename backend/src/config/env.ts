@@ -14,5 +14,5 @@ export const env = {
   WORKER_CONCURRENCY: parseInt(process.env.WORKER_CONCURRENCY || '5', 10),
   MAX_EMAILS_PER_HOUR: parseInt(process.env.MAX_EMAILS_PER_HOUR || '200', 10),
   MIN_DELAY_BETWEEN_EMAILS: parseInt(process.env.MIN_DELAY_BETWEEN_EMAILS || '2000', 10),
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173'
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5174'
 };

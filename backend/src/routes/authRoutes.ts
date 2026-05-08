@@ -7,7 +7,7 @@ const router = Router();
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get(
-  '/callback',
+  '/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   googleCallback
 );

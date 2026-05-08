@@ -1,17 +1,75 @@
-import React, { useState } from 'react';
+import { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { Upload, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
+// ── Toolbar button ──────────────────────────────────────────────────────────
+const TB = ({ children, title, onClick }: { children: React.ReactNode; title?: string; onClick?: () => void }) => (
+  <button className="toolbar-btn" title={title} onClick={onClick} type="button">{children}</button>
+);
+
+// ── Send-Later modal ────────────────────────────────────────────────────────
+const SLOTS = [
+  'Tomorrow, 10:00 AM', 'Tomorrow, 11:00 AM', 'Tomorrow, 12:00 PM',
+  'Tomorrow, 01:00 PM', 'Tomorrow, 02:00 PM',
+];
+
+function SendLaterModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: (slot: string) => void }) {
+  const [selected, setSelected] = useState(SLOTS[0]);
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+    }} onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.15 }}
+        className="card"
+        style={{ width: 280, padding: 20, fontFamily: 'Inter, sans-serif' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Send Later</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+          {SLOTS.map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSelected(s)}
+              style={{
+                textAlign: 'left', padding: '9px 12px', borderRadius: 8, fontSize: 13,
+                border: selected === s ? '1.5px solid #17AC4E' : '1px solid #E5E7EB',
+                background: selected === s ? '#E8F8EF' : '#F9FAFB',
+                color: selected === s ? '#15803D' : '#374151',
+                fontWeight: selected === s ? 600 : 400,
+                cursor: 'pointer', transition: 'all 0.1s',
+              }}
+            >{s}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</button>
+          <button className="btn-green" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onConfirm(selected)}>Confirm</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ──────────────────────────────────────────────────────────
 export const Dashboard = () => {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [csvData, setCsvData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Settings
-  const [startTime, setStartTime] = useState('');
+  const [delay, setDelay] = useState('00');
+  const [hourlyLimit, setHourlyLimit] = useState('00');
+  const [showSendLater, setShowSendLater] = useState(false);
+  const [fromEmail] = useState('oliver.brown@domain.io');
+  const [toTags] = useState(['tame@jmail.com', 'lame@jmail.com', 'dame@jmail.com']);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -19,48 +77,34 @@ export const Dashboard = () => {
       Papa.parse(file, {
         header: true,
         complete: (results) => {
-          // Assuming CSV has a column named "email" or we just grab the first column
           const parsed = results.data.filter((row: any) => row.email || Object.values(row)[0]);
           setCsvData(parsed);
-          toast.success(`Loaded ${parsed.length} emails from CSV`);
+          toast.success(`Loaded ${parsed.length} recipients from CSV`);
         },
-        error: () => toast.error('Failed to parse CSV')
+        error: () => toast.error('Failed to parse CSV'),
       });
     }
   };
 
-  const handleSchedule = async () => {
+  const handleSend = async (scheduledTime?: string) => {
     if (!subject || !body || csvData.length === 0) {
-      toast.error('Please fill all fields and upload a CSV');
+      toast.error('Please fill subject, body and upload a CSV');
       return;
     }
-
     setLoading(true);
     try {
       const emails = csvData.map((row: any) => {
         const to = row.email || Object.values(row)[0];
-        // We can replace variables in body if needed, e.g. {{name}}
         let personalizedBody = body;
-        Object.keys(row).forEach(key => {
-          personalizedBody = personalizedBody.replace(new RegExp(`{{${key}}}`, 'g'), row[key]);
+        Object.keys(row).forEach(k => {
+          personalizedBody = personalizedBody.replace(new RegExp(`{{${k}}}`, 'g'), row[k]);
         });
-        return {
-          to,
-          subject,
-          body: personalizedBody,
-          scheduledTime: startTime ? new Date(startTime).toISOString() : new Date().toISOString()
-        };
+        return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
       });
-
       await axios.post('http://localhost:5000/emails/schedule', { emails }, { withCredentials: true });
       toast.success('Emails scheduled successfully!');
-      
-      // Reset form
-      setSubject('');
-      setBody('');
-      setCsvData([]);
-      setStartTime('');
-    } catch (error) {
+      setSubject(''); setBody(''); setCsvData([]);
+    } catch {
       toast.error('Failed to schedule emails');
     } finally {
       setLoading(false);
@@ -68,72 +112,203 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Compose Campaign</h1>
-      </div>
-
-      <div className="glass-panel rounded-2xl p-8 space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Subject</label>
-          <input 
-            type="text" 
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-            placeholder="E.g. Invitation to an exclusive event"
+    <>
+      <AnimatePresence>
+        {showSendLater && (
+          <SendLaterModal
+            onClose={() => setShowSendLater(false)}
+            onConfirm={(slot) => {
+              setShowSendLater(false);
+              const d = new Date();
+              d.setDate(d.getDate() + 1);
+              const [, time, ampm] = slot.match(/(\d+:\d+) (AM|PM)/) || [];
+              if (time && ampm) {
+                let [h, m] = time.split(':').map(Number);
+                if (ampm === 'PM' && h !== 12) h += 12;
+                if (ampm === 'AM' && h === 12) h = 0;
+                d.setHours(h, m, 0, 0);
+              }
+              handleSend(d.toISOString());
+            }}
           />
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="card"
+        style={{ fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}
+      >
+        {/* ── Header ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid #E5E7EB',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>Compose New Email</h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Attach */}
+            <button
+              type="button"
+              title="Attach file"
+              onClick={() => fileRef.current?.click()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
+            {/* Clock / schedule */}
+            <button
+              type="button"
+              title="Schedule"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </button>
+            {/* Send Later */}
+            <button
+              type="button"
+              className="btn-outline"
+              style={{ height: 32, padding: '0 14px', fontSize: 13 }}
+              onClick={() => setShowSendLater(true)}
+            >
+              Send Later
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Email Body (Use {"{{column_name}}"} for variables)</label>
-          <textarea 
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={8}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white resize-none"
-            placeholder="Hi {{name}},\n\nWe would love to invite you..."
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Upload Recipients (CSV)</label>
-            <div className="relative">
-              <input 
-                type="file" 
-                accept=".csv"
-                onChange={handleFileUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <div className="w-full bg-black/20 border border-white/10 border-dashed rounded-xl px-4 py-3 flex items-center justify-center space-x-2 text-gray-400 hover:text-white hover:border-white/30 transition-all">
-                <Upload size={18} />
-                <span>{csvData.length > 0 ? `${csvData.length} recipients loaded` : 'Click to upload CSV'}</span>
-              </div>
+        {/* ── Fields ── */}
+        <div style={{ padding: '0 20px' }}>
+          {/* From */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0 }}>From</span>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 6,
+              padding: '5px 10px', fontSize: 13, color: '#374151', cursor: 'pointer',
+            }}>
+              {fromEmail}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Start Time (Optional)</label>
-            <input 
-              type="datetime-local" 
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white custom-datetime-input"
+
+          {/* To */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0, paddingTop: 4 }}>To</span>
+            <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {toTags.map(t => <span key={t} className="tag">{t}</span>)}
+              {csvData.length > 0 && (
+                <span className="tag">+{csvData.length} from CSV</span>
+              )}
+              <span style={{ fontSize: 13, color: '#17AC4E', cursor: 'pointer', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}
+                onClick={() => fileRef.current?.click()}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="21 15 21 19 3 19 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload List
+              </span>
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0 }}>Subject</span>
+            <input
+              type="text"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="Subject"
+              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#111827', background: 'transparent', fontFamily: 'Inter, sans-serif' }}
+            />
+          </div>
+
+          {/* Delay + Hourly limit */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ fontSize: 13, color: '#9CA3AF' }}>Delay between 2 emails</span>
+            <input
+              type="text"
+              value={delay}
+              onChange={e => setDelay(e.target.value)}
+              style={{
+                width: 52, height: 30, background: '#F9FAFB', border: '1px solid #E5E7EB',
+                borderRadius: 6, fontSize: 13, textAlign: 'center', color: '#374151',
+                fontFamily: 'Inter, sans-serif', outline: 'none',
+              }}
+            />
+            <span style={{ fontSize: 13, color: '#9CA3AF' }}>Hourly Limit</span>
+            <input
+              type="text"
+              value={hourlyLimit}
+              onChange={e => setHourlyLimit(e.target.value)}
+              style={{
+                width: 52, height: 30, background: '#F9FAFB', border: '1px solid #E5E7EB',
+                borderRadius: 6, fontSize: 13, textAlign: 'center', color: '#374151',
+                fontFamily: 'Inter, sans-serif', outline: 'none',
+              }}
             />
           </div>
         </div>
 
-        <div className="pt-4 flex justify-end">
-          <button 
-            onClick={handleSchedule}
-            disabled={loading}
-            className="bg-primary hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all flex items-center space-x-2 disabled:opacity-50"
-          >
-            <Send size={18} />
-            <span>{loading ? 'Scheduling...' : 'Schedule Campaign'}</span>
-          </button>
+        {/* ── Rich text editor area ── */}
+        <div style={{ padding: '12px 20px' }}>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder="Type Your Reply..."
+            style={{
+              width: '100%', minHeight: 200, border: '1px solid #E5E7EB',
+              borderRadius: 8, padding: '12px 14px', fontSize: 14, color: '#374151',
+              fontFamily: 'Inter, sans-serif', background: '#FAFAFA',
+              resize: 'vertical', outline: 'none', lineHeight: 1.6,
+            }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#17AC4E'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(23,172,78,0.1)'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.boxShadow = 'none'; }}
+          />
+
+          {/* Toolbar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+            padding: '8px 0', borderTop: '1px solid #F3F4F6', marginTop: 8,
+          }}>
+            <TB title="Undo">↩</TB>
+            <TB title="Redo">↪</TB>
+            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 4px' }} />
+            <TB title="Font size" >T↕</TB>
+            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 4px' }} />
+            <TB title="Bold"><b>B</b></TB>
+            <TB title="Italic"><i>I</i></TB>
+            <TB title="Underline"><u>U</u></TB>
+            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 4px' }} />
+            <TB title="Align">≡</TB>
+            <TB title="Align center">☰</TB>
+            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 4px' }} />
+            <TB title="Bullet list">•≡</TB>
+            <TB title="Ordered list">1≡</TB>
+            <TB title="Indent">→</TB>
+            <TB title="Outdent">←</TB>
+            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 4px' }} />
+            <TB title="Quote">❝</TB>
+            <TB title="Strikethrough"><s>S</s></TB>
+
+            {/* Right side: Send button */}
+            <div style={{ marginLeft: 'auto' }}>
+              <button
+                className="btn-green"
+                disabled={loading}
+                onClick={() => handleSend()}
+                style={{ height: 36, padding: '0 20px', fontSize: 13 }}
+              >
+                {loading ? 'Sending...' : 'Send'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </>
   );
 };
