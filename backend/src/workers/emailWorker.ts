@@ -21,7 +21,7 @@ const throttleLua = `
 `;
 
 export const emailWorker = new Worker(emailQueueName, async (job: Job) => {
-  const { jobId, to, subject, text, senderId } = job.data;
+  const { jobId, to, subject, text, senderId, from } = job.data;
   
   // 1. Enforce global minimum delay across concurrent workers safely
   const sendTime = await redisConnection.eval(
@@ -39,7 +39,7 @@ export const emailWorker = new Worker(emailQueueName, async (job: Job) => {
 
   // 2. Send the email via Mock SMTP
   try {
-    await sendEmail(to, subject, text);
+    await sendEmail(to, subject, text, from || env.ETHEREAL_USER);
 
     // 3. Mark as sent in Database
     await prisma.emailJob.update({

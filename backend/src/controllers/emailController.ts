@@ -42,9 +42,13 @@ export const scheduleEmails = async (req: Request, res: Response) => {
           to: email.to,
           subject: email.subject,
           text: email.body,
-          senderId
+          senderId,
+          from: (req.user as any).email
         },
-        { delay }
+        { 
+          delay,
+          jobId: dbJob.id // Ensure BullMQ doesn't duplicate this exact job
+        }
       );
 
       scheduledJobs.push(dbJob);
