@@ -10,6 +10,7 @@ export const env = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID as string,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
   SESSION_SECRET: process.env.SESSION_SECRET || 'secret',
+  JWT_SECRET: process.env.JWT_SECRET || process.env.SESSION_SECRET || 'jwt-secret',
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.ethereal.email',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_USER: process.env.SMTP_USER || process.env.ETHEREAL_USER as string,
