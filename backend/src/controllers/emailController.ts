@@ -85,7 +85,7 @@ export const getSentEmails = async (req: Request, res: Response) => {
 
 export const getEmailStatus = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const email = await prisma.emailJob.findUnique({ where: { id } });
     if (!email) return res.status(404).json({ message: 'Not found' });
     res.json(email);
