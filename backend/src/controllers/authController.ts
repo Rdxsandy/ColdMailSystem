@@ -37,11 +37,13 @@ export const verifyToken = (req: Request, res: Response) => {
     (req.session as any).userId = payload.userId;
     req.session.save((err) => {
       if (err) {
+        console.error('[verifyToken] Session save failed:', err);
         return res.status(500).json({ message: 'Session save failed' });
       }
       res.json({ message: 'Authenticated', userId: payload.userId });
     });
   } catch (err) {
+    console.error('[verifyToken] JWT verification failed:', (err as Error).message, '| Secret prefix:', env.JWT_SECRET?.substring(0, 8));
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
