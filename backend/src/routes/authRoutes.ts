@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { googleCallback, verifyToken, logout, getCurrentUser } from '../controllers/authController';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 // Step 2: Google redirects back here, we issue a short-lived JWT and redirect to frontend
 router.get(
   '/google/callback',
-  passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`, session: true }),
+  passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth_failed`, session: false }),
   googleCallback
 );
 

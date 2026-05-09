@@ -18,7 +18,8 @@ export const googleCallback = (req: Request, res: Response) => {
   );
 
   // Redirect to frontend with token in URL — frontend will exchange it for a session
-  res.redirect(`${env.FRONTEND_URL}/auth/callback?token=${token}`);
+  // encodeURIComponent is required: JWT contains +, /, = chars that break URL parsing
+  res.redirect(`${env.FRONTEND_URL}/auth/callback?token=${encodeURIComponent(token)}`);
 };
 
 // Step 2: Frontend calls this endpoint with the token → backend sets session cookie
