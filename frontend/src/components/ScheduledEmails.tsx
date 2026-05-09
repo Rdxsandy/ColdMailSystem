@@ -11,10 +11,11 @@ export const ScheduledEmails = () => {
   useEffect(() => {
     const fetchEmails = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/emails/scheduled`, { withCredentials: true });
+        const res = await axios.get(`${API_BASE}/emails/scheduled`);
         setEmails(res.data);
-      } catch (error) {
-        console.error('Error fetching scheduled emails', error);
+      } catch (error: any) {
+        console.error('Error fetching scheduled emails:', error?.response?.data || error?.message);
+        setEmails([]);
       } finally {
         setLoading(false);
       }

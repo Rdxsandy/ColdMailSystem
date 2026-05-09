@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../config/api';
+import { useAuth } from '../context/AuthContext';
 
 // ── Toolbar button ──────────────────────────────────────────────────────────
 const TB = ({ children, title, onClick }: { children: React.ReactNode; title?: string; onClick?: () => void }) => (
@@ -59,22 +60,29 @@ function SendLaterModal({ onClose, onConfirm }: { onClose: () => void; onConfirm
   );
 }
 
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // ── Main Dashboard ──────────────────────────────────────────────────────────
 export const Dashboard = () => {
+  const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [subject, setSubject] = useState(location.state?.subject || '');
   const [body, setBody] = useState(location.state?.body || '');
   const [csvData, setCsvData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [delay, setDelay] = useState('00');
-  const [hourlyLimit, setHourlyLimit] = useState('00');
+  const [delay, setDelay] = useState('2');
+  const [hourlyLimit, setHourlyLimit] = useState('200');
   const [showSendLater, setShowSendLater] = useState(false);
-  const [fromEmail] = useState('oliver.brown@domain.io');
+  const fromEmail = user?.email || '';
   const [toTags, setToTags] = useState<string[]>(location.state?.to ? [location.state.to] : []);
   const [tagInput, setTagInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Clear router state so navigating back doesn't re-fill old reply/forward data
+  const clearRouterState = () => {
+    navigate('/dashboard', { replace: true, state: null });
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,11 +121,18 @@ export const Dashboard = () => {
           to, subject, body, scheduledTime: scheduledTime ?? new Date().toISOString()
         }));
       }
-      await axios.post(`${API_BASE}/emails/schedule`, { emails }, { withCredentials: true });
-      toast.success('Emails scheduled successfully!');
-      setSubject(''); setBody(''); setCsvData([]);
-    } catch {
-      toast.error('Failed to schedule emails');
+      await axios.post(`${API_BASE}/emails/schedule`, { emails });
+      toast.success(`${emails.length} email(s) scheduled successfully!`);
+      // Reset form
+      setSubject('');
+      setBody('');
+      setCsvData([]);
+      setToTags([]);
+      setTagInput('');
+      clearRouterState();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to schedule emails';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

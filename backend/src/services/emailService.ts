@@ -1,22 +1,41 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 
-export const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: env.SMTP_PORT,
-  auth: {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS
+// Create transporter once — reuse the same connection for all sends
+let _transporter: nodemailer.Transporter | null = null;
+
+const getTransporter = () => {
+  if (!_transporter) {
+    _transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: false, // Ethereal uses STARTTLS on port 587
+      auth: {
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS,
+      },
+    });
   }
-});
+  return _transporter;
+};
 
 export const sendEmail = async (to: string, subject: string, text: string, from: string) => {
+  const transporter = getTransporter();
   const info = await transporter.sendMail({
-    from: `"${from}" <${from}>`,
+    from: `"ColdMail System" <${from}>`,
     to,
     subject,
     text,
+    html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${text}</pre>`,
   });
-  console.log(`Email sent: ${info.messageId}`);
+
+  // Ethereal captures the email — log the preview URL
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  console.log(`[SMTP] Email sent to ${to} | MessageId: ${info.messageId}`);
+  if (previewUrl) {
+    console.log(`[SMTP] Preview URL (Ethereal): ${previewUrl}`);
+  }
+
   return info;
 };
+
