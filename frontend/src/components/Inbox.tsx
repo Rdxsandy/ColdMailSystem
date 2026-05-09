@@ -8,8 +8,33 @@ const MOCK_EMAILS = [
   { id: 4, sender: 'Elena Gilbert', subject: 'Feedback on the cold mail system', time: 'Nov 12', status: 'meeting booked' },
 ];
 
+import { useNavigate } from 'react-router-dom';
+
 export const Inbox = () => {
   const [selected, setSelected] = useState(1);
+  const navigate = useNavigate();
+
+  const handleForward = () => {
+    const email = MOCK_EMAILS.find(e => e.id === selected);
+    if (!email) return;
+    navigate('/dashboard', {
+      state: {
+        subject: `Fwd: ${email.subject}`,
+        body: `\n\n---------- Forwarded message ---------\nFrom: ${email.sender}\nDate: ${email.time}\nSubject: ${email.subject}\nTo: me\n\nHi there,\n\nI hope you are doing well. I wanted to follow up on our previous conversation regarding the project requirements.\nWe have some exciting updates to share and would love to get your thoughts on the new proposal.\n\nPlease let me know if you are available for a quick sync next week.\n\nBest regards,\n${email.sender}`
+      }
+    });
+  };
+
+  const handleReply = () => {
+    const email = MOCK_EMAILS.find(e => e.id === selected);
+    if (!email) return;
+    navigate('/dashboard', {
+      state: {
+        subject: `Re: ${email.subject}`,
+        body: `\n\nOn ${email.time}, ${email.sender} wrote:\n> Hi there,\n> I hope you are doing well. I wanted to follow up on our previous conversation regarding the project requirements.\n> We have some exciting updates to share and would love to get your thoughts on the new proposal.\n> \n> Please let me know if you are available for a quick sync next week.\n> \n> Best regards,\n> ${email.sender}`
+      }
+    });
+  };
 
   return (
     <motion.div
@@ -80,8 +105,8 @@ export const Inbox = () => {
               <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>to me</p>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-               <button className="btn-outline" style={{ height: 32, padding: '0 12px', fontSize: 13 }}>Reply</button>
-               <button className="btn-green" style={{ height: 32, padding: '0 12px', fontSize: 13 }}>Forward</button>
+               <button className="btn-outline" style={{ height: 32, padding: '0 12px', fontSize: 13 }} onClick={handleReply}>Reply</button>
+               <button className="btn-green" style={{ height: 32, padding: '0 12px', fontSize: 13 }} onClick={handleForward}>Forward</button>
             </div>
           </div>
           <div style={{ flex: 1, padding: 20, overflowY: 'auto' }}>

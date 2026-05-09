@@ -59,10 +59,13 @@ function SendLaterModal({ onClose, onConfirm }: { onClose: () => void; onConfirm
   );
 }
 
+import { useLocation } from 'react-router-dom';
+
 // ── Main Dashboard ──────────────────────────────────────────────────────────
 export const Dashboard = () => {
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const location = useLocation();
+  const [subject, setSubject] = useState(location.state?.subject || '');
+  const [body, setBody] = useState(location.state?.body || '');
   const [csvData, setCsvData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [delay, setDelay] = useState('00');
