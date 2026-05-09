@@ -28,8 +28,10 @@ export const Inbox = () => {
   const handleReply = () => {
     const email = MOCK_EMAILS.find(e => e.id === selected);
     if (!email) return;
+    const mockEmail = email.sender.replace(' ', '.').toLowerCase() + '@domain.com';
     navigate('/dashboard', {
       state: {
+        to: mockEmail,
         subject: `Re: ${email.subject}`,
         body: `\n\nOn ${email.time}, ${email.sender} wrote:\n> Hi there,\n> I hope you are doing well. I wanted to follow up on our previous conversation regarding the project requirements.\n> We have some exciting updates to share and would love to get your thoughts on the new proposal.\n> \n> Please let me know if you are available for a quick sync next week.\n> \n> Best regards,\n> ${email.sender}`
       }

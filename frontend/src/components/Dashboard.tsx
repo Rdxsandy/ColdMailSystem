@@ -72,7 +72,8 @@ export const Dashboard = () => {
   const [hourlyLimit, setHourlyLimit] = useState('00');
   const [showSendLater, setShowSendLater] = useState(false);
   const [fromEmail] = useState('oliver.brown@domain.io');
-  const [toTags] = useState(['tame@jmail.com', 'lame@jmail.com', 'dame@jmail.com']);
+  const [toTags, setToTags] = useState<string[]>(location.state?.to ? [location.state.to] : []);
+  const [tagInput, setTagInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,20 +92,27 @@ export const Dashboard = () => {
   };
 
   const handleSend = async (scheduledTime?: string) => {
-    if (!subject || !body || csvData.length === 0) {
-      toast.error('Please fill subject, body and upload a CSV');
+    if (!subject || !body || (csvData.length === 0 && toTags.length === 0)) {
+      toast.error('Please fill subject, body and add recipients');
       return;
     }
     setLoading(true);
     try {
-      const emails = csvData.map((row: any) => {
-        const to = row.email || Object.values(row)[0];
-        let personalizedBody = body;
-        Object.keys(row).forEach(k => {
-          personalizedBody = personalizedBody.replace(new RegExp(`{{${k}}}`, 'g'), row[k]);
+      let emails: any[] = [];
+      if (csvData.length > 0) {
+        emails = csvData.map((row: any) => {
+          const to = row.email || Object.values(row)[0];
+          let personalizedBody = body;
+          Object.keys(row).forEach(k => {
+            personalizedBody = personalizedBody.replace(new RegExp(`{{${k}}}`, 'g'), row[k]);
+          });
+          return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
         });
-        return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
-      });
+      } else {
+        emails = toTags.map(to => ({
+          to, subject, body, scheduledTime: scheduledTime ?? new Date().toISOString()
+        }));
+      }
       await axios.post(`${API_BASE}/emails/schedule`, { emails }, { withCredentials: true });
       toast.success('Emails scheduled successfully!');
       setSubject(''); setBody(''); setCsvData([]);
@@ -206,7 +214,30 @@ export const Dashboard = () => {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
             <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0, paddingTop: 4 }}>To</span>
             <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {toTags.map(t => <span key={t} className="tag">{t}</span>)}
+              {toTags.map((t, i) => (
+                <span key={i} className="tag" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {t}
+                  <span style={{ cursor: 'pointer', fontSize: 14 }} onClick={() => setToTags(toTags.filter((_, index) => index !== i))}>&times;</span>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    if (tagInput.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tagInput.trim())) {
+                      setToTags([...toTags, tagInput.trim()]);
+                      setTagInput('');
+                    } else if (tagInput.trim()) {
+                      toast.error('Invalid email format');
+                    }
+                  }
+                }}
+                placeholder={toTags.length === 0 ? "Enter email and press Enter" : ""}
+                style={{ flex: 1, minWidth: 150, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', fontFamily: 'Inter, sans-serif' }}
+              />
               {csvData.length > 0 && (
                 <span className="tag">+{csvData.length} from CSV</span>
               )}
