@@ -18,43 +18,81 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+// ─── Helpers: read/write JWT in localStorage ───────────────────────────────────
+const TOKEN_KEY = 'coldmail_auth_token';
+
+export const getStoredToken = (): string | null => localStorage.getItem(TOKEN_KEY);
+
+const storeToken = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  // Set as default Authorization header for all future axios requests
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+};
+
+const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  delete axios.defaults.headers.common['Authorization'];
+};
+
+// Restore the authorization header on page load if token exists in localStorage
+const existingToken = getStoredToken();
+if (existingToken) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
+}
+
+// ─── Provider ──────────────────────────────────────────────────────────────────
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch the current user using the stored JWT
   const fetchUser = async () => {
+    const token = getStoredToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await axios.get(`${API_BASE}/auth/me`, { withCredentials: true });
+      const res = await axios.get(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUser(res.data);
     } catch {
+      // Token is invalid or expired — clear it
+      clearToken();
       setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Step 2 of the OAuth flow: exchange the one-time URL token for a long-lived JWT
   const exchangeToken = async (token: string) => {
     try {
-      // Exchange the short-lived JWT (from URL) for a real session cookie
-      await axios.post(`${API_BASE}/auth/verify-token`, { token }, { withCredentials: true });
-      // Redirect to dashboard — this also cleans the token from the URL
+      const res = await axios.post(`${API_BASE}/auth/verify-token`, { token });
+      // Store the long-lived JWT and user data — no cookies, no sessions!
+      storeToken(res.data.token);
+      setUser(res.data.user);
+      setLoading(false);
+      // Navigate to dashboard and remove the token from the URL
+      window.history.replaceState({}, '', '/dashboard');
       window.location.replace('/dashboard');
-    } catch {
+    } catch (err: any) {
+      console.error('[exchangeToken] Failed:', err?.response?.data || err?.message);
+      clearToken();
       setLoading(false);
       window.location.href = '/login?error=auth_failed';
     }
   };
 
   useEffect(() => {
-    // Check if we're coming back from Google OAuth with a token in the URL
+    // Check if we're coming back from Google OAuth with a one-time token in the URL
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const oneTimeToken = params.get('token');
 
-    if (token) {
-      // We're on the /auth/callback page with a token — exchange it
-      exchangeToken(token);
+    if (oneTimeToken) {
+      exchangeToken(oneTimeToken);
     } else {
-      // Normal load — check if there's an existing session
       fetchUser();
     }
   }, []);
@@ -64,7 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true });
+    await axios.post(`${API_BASE}/auth/logout`).catch(() => {});
+    clearToken();
     setUser(null);
   };
 

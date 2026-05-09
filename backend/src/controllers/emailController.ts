@@ -4,18 +4,20 @@ import { emailQueue } from '../queues/emailQueue';
 
 export const scheduleEmails = async (req: Request, res: Response) => {
   try {
-    const { emails, delayBetweenEmails, hourlyLimit } = req.body;
-    // emails: Array<{ to: string, subject: string, body: string, scheduledTime: string }>
-    // We can assume hourlyLimit and delayBetweenEmails are used globally via ENV, or we pass them?
-    // Since BullMQ worker config handles max emails per hour, overriding per job is possible but complex.
-    // The assignment requires us to be able to set it from UI, but applying it dynamically to the worker requires either recreating the worker or using custom logic.
-    // For simplicity, we stick to ENV for limits, but we calculate specific 'delay' for BullMQ if 'scheduledTime' is in future.
-    
-    const senderId = (req.user as any).id;
+    const { emails } = req.body;
+    const senderId = (req as any).userId; // Set by JWT auth middleware
+
+    if (!senderId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
 
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
       return res.status(400).json({ message: 'Invalid emails payload' });
     }
+
+    // Fetch sender email for the 'from' field
+    const sender = await prisma.user.findUnique({ where: { id: senderId }, select: { email: true } });
+    const senderEmail = sender?.email || 'noreply@coldmailsystem.com';
 
     const scheduledJobs = [];
 
@@ -43,11 +45,11 @@ export const scheduleEmails = async (req: Request, res: Response) => {
           subject: email.subject,
           text: email.body,
           senderId,
-          from: (req.user as any).email
+          from: senderEmail
         },
         { 
           delay,
-          jobId: dbJob.id // Ensure BullMQ doesn't duplicate this exact job
+          jobId: dbJob.id
         }
       );
 
@@ -63,7 +65,7 @@ export const scheduleEmails = async (req: Request, res: Response) => {
 
 export const getScheduledEmails = async (req: Request, res: Response) => {
   try {
-    const senderId = (req.user as any).id;
+    const senderId = (req as any).userId;
     const emails = await prisma.emailJob.findMany({
       where: { senderId, status: { in: ['scheduled', 'queued'] } },
       orderBy: { scheduledTime: 'asc' }
@@ -76,7 +78,7 @@ export const getScheduledEmails = async (req: Request, res: Response) => {
 
 export const getSentEmails = async (req: Request, res: Response) => {
   try {
-    const senderId = (req.user as any).id;
+    const senderId = (req as any).userId;
     const emails = await prisma.emailJob.findMany({
       where: { senderId, status: { in: ['sent', 'failed'] } },
       orderBy: { sentTime: 'desc' }
