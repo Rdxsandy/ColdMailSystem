@@ -142,6 +142,44 @@ export const Dashboard = () => {
     }
   };
 
+  const handleInstantSend = async () => {
+    setLoading(true);
+    try {
+      let emails: any[] = [];
+      const manualEmails = String(toInput).split(',').map((e: string) => e.trim()).filter((e: string) => e);
+
+      if (csvData.length > 0) {
+        emails = csvData.map((row: any) => {
+          const to = row.email || Object.values(row)[0];
+          let personalizedBody = body;
+          Object.keys(row).forEach(k => {
+            personalizedBody = personalizedBody.replace(new RegExp(`{{${k}}}`, 'g'), row[k]);
+          });
+          return { to, subject, body: personalizedBody };
+        });
+      } else if (manualEmails.length > 0) {
+        emails = manualEmails.map((to: string) => ({
+          to, subject, body
+        }));
+      } else {
+        emails = [{ to: '', subject, body }];
+      }
+      await axios.post(`${API_BASE}/emails/send-instant`, { emails });
+      toast.success(`${emails.length} email(s) sent instantly!`);
+      // Reset form
+      setSubject('');
+      setBody('');
+      setCsvData([]);
+      setToInput('');
+      clearRouterState();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to send instant emails';
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -332,15 +370,23 @@ export const Dashboard = () => {
             <TB title="Strikethrough"><s>S</s></TB>
 
             {/* Right side: Send button */}
-            <div style={{ marginLeft: 'auto' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              <button
+                className="btn-outline"
+                disabled={loading}
+                onClick={handleInstantSend}
+                style={{ height: 36, padding: '0 20px', fontSize: 13 }}
+              >
+                Instant Send
+              </button>
               <button
                 className="btn-green"
                 disabled={loading}
                 onClick={() => handleSend()}
                 style={{ height: 36, padding: '0 20px', fontSize: 13 }}
               >
-                {loading ? 'Sending...' : 'Send'}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                {loading ? 'Scheduling...' : 'Schedule'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 6 }}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </div>
           </div>

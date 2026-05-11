@@ -76,6 +76,63 @@ export const scheduleEmails = async (req: Request, res: Response) => {
   }
 };
 
+import { sendEmail } from '../services/emailService';
+
+export const sendInstantEmails = async (req: Request, res: Response) => {
+  try {
+    const { emails } = req.body;
+    const senderId = (req as any).userId;
+
+    if (!senderId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ message: 'Invalid emails payload — expected non-empty array' });
+    }
+
+    const sender = await prisma.user.findUnique({ where: { id: senderId }, select: { email: true } });
+    const senderEmail = sender?.email || 'noreply@coldmailsystem.com';
+
+    const sentJobs = [];
+
+    for (const email of emails) {
+      const dbJob = await prisma.emailJob.create({
+        data: {
+          recipientEmail: email.to || '',
+          subject: email.subject || '',
+          body: email.body || '',
+          scheduledTime: new Date(),
+          senderId,
+          status: 'sent',
+          sentTime: new Date(),
+        },
+      });
+
+      try {
+        if (email.to) {
+          await sendEmail(email.to, email.subject || '', email.body || '', senderEmail);
+        }
+        sentJobs.push(dbJob);
+      } catch (err) {
+        console.error('[EmailController] Instant send failed for', email.to, err);
+        await prisma.emailJob.update({
+          where: { id: dbJob.id },
+          data: { status: 'failed' },
+        });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Emails sent instantly',
+      count: sentJobs.length,
+    });
+  } catch (error: any) {
+    console.error('[EmailController] Failed to send instant emails:', error);
+    return res.status(500).json({ message: 'Failed to send instant emails', error: error.message });
+  }
+};
+
 export const getScheduledEmails = async (req: Request, res: Response) => {
   try {
     const senderId = (req as any).userId;

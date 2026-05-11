@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
-import { scheduleEmails, getScheduledEmails, getSentEmails, getEmailStatus } from '../controllers/emailController';
+import { scheduleEmails, sendInstantEmails, getScheduledEmails, getSentEmails, getEmailStatus } from '../controllers/emailController';
 
 const router = Router();
 
@@ -28,6 +28,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
 router.use(isAuthenticated);
 
 router.post('/schedule', scheduleEmails);
+router.post('/send-instant', sendInstantEmails);
 router.get('/scheduled', getScheduledEmails);
 router.get('/sent', getSentEmails);
 router.get('/:id', getEmailStatus);
