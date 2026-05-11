@@ -102,7 +102,7 @@ export const Dashboard = () => {
     setLoading(true);
     try {
       let emails: any[] = [];
-      const manualEmails = toInput.split(',').map(e => e.trim()).filter(e => e);
+      const manualEmails = String(toInput).split(',').map((e: string) => e.trim()).filter((e: string) => e);
 
       if (csvData.length > 0) {
         emails = csvData.map((row: any) => {
@@ -114,7 +114,7 @@ export const Dashboard = () => {
           return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
         });
       } else if (manualEmails.length > 0) {
-        emails = manualEmails.map(to => ({
+        emails = manualEmails.map((to: string) => ({
           to, subject, body, scheduledTime: scheduledTime ?? new Date().toISOString()
         }));
       } else {
