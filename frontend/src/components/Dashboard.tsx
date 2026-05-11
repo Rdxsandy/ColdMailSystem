@@ -75,8 +75,7 @@ export const Dashboard = () => {
   const [hourlyLimit, setHourlyLimit] = useState('200');
   const [showSendLater, setShowSendLater] = useState(false);
   const fromEmail = user?.email || '';
-  const [toTags, setToTags] = useState<string[]>(location.state?.to ? [location.state.to] : []);
-  const [tagInput, setTagInput] = useState('');
+  const [toInput, setToInput] = useState(location.state?.to || '');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Clear router state so navigating back doesn't re-fill old reply/forward data
@@ -103,6 +102,8 @@ export const Dashboard = () => {
     setLoading(true);
     try {
       let emails: any[] = [];
+      const manualEmails = toInput.split(',').map(e => e.trim()).filter(e => e);
+
       if (csvData.length > 0) {
         emails = csvData.map((row: any) => {
           const to = row.email || Object.values(row)[0];
@@ -112,14 +113,14 @@ export const Dashboard = () => {
           });
           return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
         });
-      } else if (toTags.length > 0) {
-        emails = toTags.map(to => ({
+      } else if (manualEmails.length > 0) {
+        emails = manualEmails.map(to => ({
           to, subject, body, scheduledTime: scheduledTime ?? new Date().toISOString()
         }));
       } else {
-        // If no tags and no CSV, just send what they typed in the input (or empty string)
+        // If no recipients, send an empty one to not block the user (it will fail on SMTP later)
         emails = [{
-          to: tagInput.trim(),
+          to: '',
           subject,
           body,
           scheduledTime: scheduledTime ?? new Date().toISOString()
@@ -131,8 +132,7 @@ export const Dashboard = () => {
       setSubject('');
       setBody('');
       setCsvData([]);
-      setToTags([]);
-      setTagInput('');
+      setToInput('');
       clearRouterState();
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to schedule emails';
@@ -230,31 +230,14 @@ export const Dashboard = () => {
           </div>
 
           {/* To */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
-            <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0, paddingTop: 4 }}>To</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+            <span style={{ fontSize: 13, color: '#9CA3AF', width: 56, flexShrink: 0 }}>To</span>
             <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {toTags.map((t, i) => (
-                <span key={i} className="tag" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {t}
-                  <span style={{ cursor: 'pointer', fontSize: 14 }} onClick={() => setToTags(toTags.filter((_, index) => index !== i))}>&times;</span>
-                </span>
-              ))}
               <input
                 type="text"
-                value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ',') {
-                    e.preventDefault();
-                    if (tagInput.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tagInput.trim())) {
-                      setToTags([...toTags, tagInput.trim()]);
-                      setTagInput('');
-                    } else if (tagInput.trim()) {
-                      toast.error('Invalid email format');
-                    }
-                  }
-                }}
-                placeholder={toTags.length === 0 ? "Enter email and press Enter" : ""}
+                value={toInput}
+                onChange={e => setToInput(e.target.value)}
+                placeholder="Enter email addresses (comma separated)"
                 style={{ flex: 1, minWidth: 150, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', fontFamily: 'Inter, sans-serif' }}
               />
               {csvData.length > 0 && (
