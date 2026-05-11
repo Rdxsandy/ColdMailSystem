@@ -6,17 +6,29 @@ let _transporter: nodemailer.Transporter | null = null;
 
 const getTransporter = () => {
   if (!_transporter) {
-    _transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465, // Use TLS for port 465, STARTTLS for 587
-      connectionTimeout: 10000, // Fail fast if the port is blocked (e.g. on Render)
-      socketTimeout: 10000,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-    });
+    const isGmail = env.SMTP_HOST?.includes('gmail');
+    
+    if (isGmail) {
+      _transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      });
+    } else {
+      _transporter = nodemailer.createTransport({
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT,
+        secure: env.SMTP_PORT === 465, // Use TLS for port 465, STARTTLS for 587
+        connectionTimeout: 10000, // Fail fast if the port is blocked (e.g. on Render)
+        socketTimeout: 10000,
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      });
+    }
   }
   return _transporter;
 };
