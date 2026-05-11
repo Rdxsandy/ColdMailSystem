@@ -100,10 +100,6 @@ export const Dashboard = () => {
   };
 
   const handleSend = async (scheduledTime?: string) => {
-    if (csvData.length === 0 && toTags.length === 0) {
-      toast.error('Please add at least one recipient');
-      return;
-    }
     setLoading(true);
     try {
       let emails: any[] = [];
@@ -116,10 +112,18 @@ export const Dashboard = () => {
           });
           return { to, subject, body: personalizedBody, scheduledTime: scheduledTime ?? new Date().toISOString() };
         });
-      } else {
+      } else if (toTags.length > 0) {
         emails = toTags.map(to => ({
           to, subject, body, scheduledTime: scheduledTime ?? new Date().toISOString()
         }));
+      } else {
+        // If no tags and no CSV, just send what they typed in the input (or empty string)
+        emails = [{
+          to: tagInput.trim(),
+          subject,
+          body,
+          scheduledTime: scheduledTime ?? new Date().toISOString()
+        }];
       }
       await axios.post(`${API_BASE}/emails/schedule`, { emails });
       toast.success(`${emails.length} email(s) scheduled successfully!`);

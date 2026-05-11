@@ -15,12 +15,7 @@ export const scheduleEmails = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid emails payload — expected non-empty array' });
     }
 
-    // Validate each email entry
-    for (const email of emails) {
-      if (!email.to) {
-        return res.status(400).json({ message: 'Each email must have a recipient (to)' });
-      }
-    }
+    // Removed validation for 'to' field, allowing emails to be scheduled without a recipient if desired.
 
     // Fetch sender email for the 'from' field
     const sender = await prisma.user.findUnique({ where: { id: senderId }, select: { email: true } });
@@ -35,7 +30,7 @@ export const scheduleEmails = async (req: Request, res: Response) => {
       // Create DB record first — this is the source of truth
       const dbJob = await prisma.emailJob.create({
         data: {
-          recipientEmail: email.to,
+          recipientEmail: email.to || '',
           subject: email.subject || '',
           body: email.body || '',
           scheduledTime,
