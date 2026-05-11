@@ -17,8 +17,8 @@ export const scheduleEmails = async (req: Request, res: Response) => {
 
     // Validate each email entry
     for (const email of emails) {
-      if (!email.to || !email.subject || !email.body) {
-        return res.status(400).json({ message: 'Each email must have: to, subject, body' });
+      if (!email.to) {
+        return res.status(400).json({ message: 'Each email must have a recipient (to)' });
       }
     }
 
@@ -36,8 +36,8 @@ export const scheduleEmails = async (req: Request, res: Response) => {
       const dbJob = await prisma.emailJob.create({
         data: {
           recipientEmail: email.to,
-          subject: email.subject,
-          body: email.body,
+          subject: email.subject || '',
+          body: email.body || '',
           scheduledTime,
           senderId,
           status: 'scheduled',
@@ -52,8 +52,8 @@ export const scheduleEmails = async (req: Request, res: Response) => {
         {
           jobId: dbJob.id,
           to: email.to,
-          subject: email.subject,
-          text: email.body,
+          subject: email.subject || '',
+          text: email.body || '',
           senderId,
           from: senderEmail,
         },

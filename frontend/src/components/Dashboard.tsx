@@ -100,8 +100,8 @@ export const Dashboard = () => {
   };
 
   const handleSend = async (scheduledTime?: string) => {
-    if (!subject || !body || (csvData.length === 0 && toTags.length === 0)) {
-      toast.error('Please fill subject, body and add recipients');
+    if (csvData.length === 0 && toTags.length === 0) {
+      toast.error('Please add at least one recipient');
       return;
     }
     setLoading(true);
