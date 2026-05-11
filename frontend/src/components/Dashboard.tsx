@@ -136,7 +136,8 @@ export const Dashboard = () => {
       clearRouterState();
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to schedule emails';
-      toast.error(msg);
+      const detail = err?.response?.data?.error ? ` (${err.response.data.error})` : '';
+      toast.error(`${msg}${detail}`);
     } finally {
       setLoading(false);
     }
@@ -174,7 +175,8 @@ export const Dashboard = () => {
       clearRouterState();
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to send instant emails';
-      toast.error(msg);
+      const detail = err?.response?.data?.error ? ` (${err.response.data.error})` : '';
+      toast.error(`${msg}${detail}`);
     } finally {
       setLoading(false);
     }

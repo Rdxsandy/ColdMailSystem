@@ -95,6 +95,7 @@ export const sendInstantEmails = async (req: Request, res: Response) => {
     const senderEmail = sender?.email || 'noreply@coldmailsystem.com';
 
     const sentJobs = [];
+    const errors = [];
 
     for (const email of emails) {
       const dbJob = await prisma.emailJob.create({
@@ -114,18 +115,30 @@ export const sendInstantEmails = async (req: Request, res: Response) => {
           await sendEmail(email.to, email.subject || '', email.body || '', senderEmail);
         }
         sentJobs.push(dbJob);
-      } catch (err) {
+      } catch (err: any) {
         console.error('[EmailController] Instant send failed for', email.to, err);
+        errors.push({ to: email.to, error: err.message });
         await prisma.emailJob.update({
           where: { id: dbJob.id },
-          data: { status: 'failed' },
+          data: { 
+            status: 'failed',
+            body: String(err)
+          },
         });
       }
     }
 
+    if (errors.length > 0 && sentJobs.length === 0) {
+      return res.status(500).json({
+        message: 'Failed to send instant emails',
+        error: errors[0].error
+      });
+    }
+
     return res.status(200).json({
-      message: 'Emails sent instantly',
+      message: errors.length > 0 ? 'Some emails failed' : 'Emails sent instantly',
       count: sentJobs.length,
+      errors: errors.length > 0 ? errors : undefined
     });
   } catch (error: any) {
     console.error('[EmailController] Failed to send instant emails:', error);
