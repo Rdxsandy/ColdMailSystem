@@ -9,7 +9,9 @@ const getTransporter = () => {
     _transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
-      secure: false, // Ethereal uses STARTTLS on port 587
+      secure: env.SMTP_PORT === 465, // Use TLS for port 465, STARTTLS for 587
+      connectionTimeout: 10000, // Fail fast if the port is blocked (e.g. on Render)
+      socketTimeout: 10000,
       auth: {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS,
