@@ -98,6 +98,7 @@ export const sendInstantEmails = async (req: Request, res: Response) => {
     const errors = [];
 
     for (const email of emails) {
+      // Create with 'pending' first — only mark 'sent' after confirmed delivery
       const dbJob = await prisma.emailJob.create({
         data: {
           recipientEmail: email.to || '',
@@ -105,25 +106,28 @@ export const sendInstantEmails = async (req: Request, res: Response) => {
           body: email.body || '',
           scheduledTime: new Date(),
           senderId,
-          status: 'sent',
-          sentTime: new Date(),
+          status: 'pending',
         },
       });
 
       try {
-        if (email.to) {
-          await sendEmail(email.to, email.subject || '', email.body || '', senderEmail);
+        if (!email.to) {
+          throw new Error('Recipient email (to) is required for instant send');
         }
-        sentJobs.push(dbJob);
+        await sendEmail(email.to, email.subject || '', email.body || '', senderEmail);
+
+        // Only mark as sent after successful SMTP delivery
+        await prisma.emailJob.update({
+          where: { id: dbJob.id },
+          data: { status: 'sent', sentTime: new Date() },
+        });
+        sentJobs.push({ ...dbJob, status: 'sent' });
       } catch (err: any) {
-        console.error('[EmailController] Instant send failed for', email.to, err);
+        console.error('[EmailController] Instant send failed for', email.to, ':', err.message);
         errors.push({ to: email.to, error: err.message });
         await prisma.emailJob.update({
           where: { id: dbJob.id },
-          data: { 
-            status: 'failed',
-            body: String(err)
-          },
+          data: { status: 'failed' },
         });
       }
     }
