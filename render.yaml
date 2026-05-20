@@ -21,13 +21,12 @@ services:
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
-      - key: SMTP_HOST
+      # Resend HTTP API — required for email sending on Render (SMTP ports are blocked)
+      - key: RESEND_API_KEY
         sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
+      # The verified sender address from your Resend domain settings
+      # Use "onboarding@resend.dev" for testing without a verified domain
+      - key: RESEND_FROM_EMAIL
         sync: false
       - key: FRONTEND_URL
         value: https://cold-mail-system-beryl.vercel.app

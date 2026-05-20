@@ -1,82 +1,52 @@
-import nodemailer from 'nodemailer';
-import SMTPTransport from 'nodemailer/lib/smtp-transport';
-import dns from 'dns/promises';
+import { Resend } from 'resend';
 import { env } from '../config/env';
 
-// ─── SMTP Transporter ────────────────────────────────────────────────────────
+// ─── Resend HTTP Email Client ─────────────────────────────────────────────────
+// Uses Resend's HTTPS API (port 443) — works on Render free tier.
+// Render blocks all outbound SMTP ports (25, 465, 587), so nodemailer/SMTP
+// always times out. Resend is the correct solution for serverless/PaaS hosting.
+//
+// Sign up free at https://resend.com — 3,000 emails/month, 100/day.
+// Set RESEND_API_KEY in your Render environment variables.
 
-// Resolve a hostname to its IPv4 address to bypass Render's broken IPv6 routing.
-// Returns the original hostname if resolution fails (safe fallback).
-const resolveIPv4 = async (hostname: string): Promise<string> => {
-  try {
-    const result = await dns.lookup(hostname, { family: 4 });
-    console.log(`[SMTP] Resolved ${hostname} → ${result.address} (IPv4)`);
-    return result.address;
-  } catch {
-    console.warn(`[SMTP] Could not resolve ${hostname} to IPv4, using hostname directly`);
-    return hostname;
+let _resend: Resend | null = null;
+
+const getResend = (): Resend => {
+  if (!env.RESEND_API_KEY) {
+    throw new Error(
+      'RESEND_API_KEY is not set. Add it to your Render environment variables. ' +
+      'Get a free API key at https://resend.com'
+    );
   }
+  if (!_resend) {
+    _resend = new Resend(env.RESEND_API_KEY);
+  }
+  return _resend;
 };
 
 export const sendEmail = async (to: string, subject: string, text: string, from: string) => {
-  const smtpUser = env.SMTP_USER || '';
-  const smtpPass = env.SMTP_PASS || '';
+  const resend = getResend();
 
-  if (!smtpUser || !smtpPass) {
-    throw new Error('SMTP_USER or SMTP_PASS environment variable is not set on the server');
-  }
+  // Resend requires a verified sender domain in production.
+  // During testing you can use: onboarding@resend.dev  (Resend's built-in test sender)
+  // For production: verify your domain at resend.com/domains and use your own address.
+  const senderAddress = env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-  // Determine host/port — default to Gmail 587 if not configured
-  const smtpHostname = (env.SMTP_HOST && env.SMTP_HOST !== 'smtp.ethereal.email')
-    ? env.SMTP_HOST
-    : 'smtp.gmail.com';
-  const smtpPort = env.SMTP_PORT === 465 ? 587 : (env.SMTP_PORT || 587);
-  // port 465 is BLOCKED on Render free tier — always use 587 (STARTTLS)
+  console.log(`[Resend] Sending email to ${to} from ${senderAddress}`);
 
-  // Resolve hostname to a concrete IPv4 address BEFORE creating the transporter.
-  // Render free tier has unreliable IPv6 outbound routing, so forcing IPv4 here
-  // prevents "ENETUNREACH 2607:..." errors.
-  const smtpHost = await resolveIPv4(smtpHostname);
-
-  console.log(`[SMTP] Connecting to ${smtpHost}:${smtpPort} as ${smtpUser}`);
-
-  // Do NOT use nodemailer's `service: 'gmail'` shorthand — it defaults to port 465 + IPv6.
-  const options: SMTPTransport.Options = {
-    host: smtpHost,       // Already a concrete IPv4 address — no DNS needed at connect time
-    port: smtpPort,
-    secure: false,        // false = STARTTLS (port 587)
-    requireTLS: true,     // Enforce STARTTLS upgrade
-    connectionTimeout: 20000,
-    socketTimeout: 20000,
-    auth: {
-      user: smtpUser,
-      pass: smtpPass,     // Must be a Gmail App Password, NOT your Google account password
-    },
-    tls: {
-      rejectUnauthorized: true,
-      servername: smtpHostname, // SNI must use the original hostname, not the IP
-    },
-  };
-
-  const transporter = nodemailer.createTransport(options);
-
-  // Verify SMTP connection before sending — gives a clear error if credentials are wrong
-  try {
-    await transporter.verify();
-  } catch (verifyErr: any) {
-    console.error('[SMTP] Connection verify failed:', verifyErr.message);
-    throw new Error(`SMTP connection failed: ${verifyErr.message}`);
-  }
-
-  const info = await transporter.sendMail({
-    from: `"ColdMail System" <${from}>`,
+  const { data, error } = await resend.emails.send({
+    from: `ColdMail System <${senderAddress}>`,
     to,
     subject,
     text,
     html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${text}</pre>`,
-  }) as SMTPTransport.SentMessageInfo;
+  });
 
-  console.log(`[SMTP] Email sent to ${to} | MessageId: ${info.messageId}`);
+  if (error) {
+    console.error('[Resend] Send failed:', error);
+    throw new Error(`Resend error: ${error.message}`);
+  }
 
-  return info;
+  console.log(`[Resend] Email sent to ${to} | MessageId: ${data?.id}`);
+  return data;
 };

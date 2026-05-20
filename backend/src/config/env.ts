@@ -11,7 +11,11 @@ export const env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
   SESSION_SECRET: process.env.SESSION_SECRET || 'secret',
   JWT_SECRET: process.env.JWT_SECRET || process.env.SESSION_SECRET || 'jwt-secret',
-  SMTP_HOST: process.env.SMTP_HOST || 'smtp.ethereal.email',
+  // Resend HTTP API — replaces nodemailer/SMTP (Render blocks outbound SMTP ports)
+  RESEND_API_KEY: process.env.RESEND_API_KEY as string | undefined,
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL as string | undefined,
+  // Legacy SMTP vars kept for reference (not used in production)
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
   SMTP_USER: process.env.SMTP_USER || process.env.ETHEREAL_USER as string,
   SMTP_PASS: process.env.SMTP_PASS || process.env.ETHEREAL_PASS as string,
