@@ -1,20 +1,83 @@
 import { env } from '../config/env';
 
-// ─── Dual-mode Email Service ──────────────────────────────────────────────────
+// ─── Tri-mode Email Service ───────────────────────────────────────────────────
 //
-// • LOCAL / Development  → Nodemailer + Gmail SMTP (SMTP_HOST / SMTP_USER / SMTP_PASS)
-//   Gmail SMTP works fine locally because Render's port-blocking doesn't apply.
+// Priority order (first configured wins):
 //
-// • PRODUCTION (Render)  → Resend HTTP API (RESEND_API_KEY)
-//   Render free tier blocks all outbound SMTP ports (25, 465, 587), so we must
-//   use an HTTP-based provider instead.  Get a free key at https://resend.com.
+// 1. Gmail API (OAuth2 over HTTPS) — GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET +
+//    GMAIL_REFRESH_TOKEN set.  Uses Google's REST API on port 443, so Render's
+//    free tier SMTP port blocks (25 / 465 / 587) don't apply.
+//    Quota: 500 messages/day for a regular Gmail account.
 //
-// The mode is selected automatically:
-//   - RESEND_API_KEY set  → Resend  (takes priority)
-//   - otherwise           → Nodemailer SMTP
+// 2. Resend HTTP API — RESEND_API_KEY set.
+//    Requires a verified sender domain for arbitrary recipients.
+//
+// 3. Nodemailer SMTP — local development fallback.
+//    Works fine locally (port 587); Render blocks this port so never used there.
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Resend path ───────────────────────────────────────────────────────────────
+// ── 1. Gmail API (OAuth2) ─────────────────────────────────────────────────────
+import { google } from 'googleapis';
+
+const getGmailClient = () => {
+  const oauth2Client = new google.auth.OAuth2(
+    env.GMAIL_CLIENT_ID,
+    env.GMAIL_CLIENT_SECRET,
+    'https://developers.google.com/oauthplayground'
+  );
+  oauth2Client.setCredentials({ refresh_token: env.GMAIL_REFRESH_TOKEN });
+  return google.gmail({ version: 'v1', auth: oauth2Client });
+};
+
+/**
+ * Build a base64url-encoded RFC 2822 message (required by Gmail API).
+ */
+const buildRawEmail = (
+  to: string,
+  from: string,
+  subject: string,
+  text: string
+): string => {
+  const mime = [
+    `From: ColdMail System <${from}>`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/plain; charset=utf-8`,
+    ``,
+    text,
+  ].join('\r\n');
+
+  return Buffer.from(mime)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+};
+
+const sendViaGmailAPI = async (
+  to: string,
+  subject: string,
+  text: string,
+  from: string
+): Promise<void> => {
+  const gmail = getGmailClient();
+  const senderAddress = from || env.GMAIL_USER || env.SMTP_USER;
+
+  console.log(`[Gmail API] Sending to ${to} from ${senderAddress}`);
+
+  const raw = buildRawEmail(to, senderAddress, subject, text);
+
+  const { data } = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw },
+  });
+
+  console.log(`[Gmail API] Email sent to ${to} | MessageId: ${data.id}`);
+};
+
+// ── 2. Resend HTTP API ────────────────────────────────────────────────────────
 import { Resend } from 'resend';
 
 let _resend: Resend | null = null;
@@ -23,7 +86,11 @@ const getResend = (): Resend => {
   return _resend;
 };
 
-const sendViaResend = async (to: string, subject: string, text: string): Promise<void> => {
+const sendViaResend = async (
+  to: string,
+  subject: string,
+  text: string
+): Promise<void> => {
   const resend = getResend();
   const senderAddress = env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
@@ -45,27 +112,28 @@ const sendViaResend = async (to: string, subject: string, text: string): Promise
   console.log(`[Resend] Email sent to ${to} | MessageId: ${data?.id}`);
 };
 
-// ── Nodemailer (SMTP) path ────────────────────────────────────────────────────
+// ── 3. Nodemailer SMTP ────────────────────────────────────────────────────────
 import nodemailer from 'nodemailer';
 
 let _transporter: nodemailer.Transporter | null = null;
-
 const getTransporter = (): nodemailer.Transporter => {
   if (!_transporter) {
     _transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465, // true only for port 465 (SSL), false for 587 (TLS/STARTTLS)
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
+      secure: env.SMTP_PORT === 465,
+      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
     });
   }
   return _transporter;
 };
 
-const sendViaSMTP = async (to: string, subject: string, text: string, from: string): Promise<void> => {
+const sendViaSMTP = async (
+  to: string,
+  subject: string,
+  text: string,
+  from: string
+): Promise<void> => {
   const transporter = getTransporter();
   const senderAddress = from || env.SMTP_USER;
 
@@ -82,24 +150,26 @@ const sendViaSMTP = async (to: string, subject: string, text: string, from: stri
   console.log(`[SMTP] Email sent to ${to} | MessageId: ${info.messageId}`);
 };
 
-// ── Public API ─────────────────────────────────────────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────────────
 export const sendEmail = async (
   to: string,
   subject: string,
   text: string,
   from: string
 ): Promise<void> => {
-  if (env.RESEND_API_KEY) {
-    // Production: use Resend HTTP API (bypasses Render SMTP port blocks)
+  if (env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN) {
+    // Production: Gmail API over HTTPS — not blocked by Render, completely free
+    await sendViaGmailAPI(to, subject, text, from);
+  } else if (env.RESEND_API_KEY) {
+    // Fallback: Resend HTTP API (requires verified sender domain)
     await sendViaResend(to, subject, text);
-  } else {
-    // Local / dev: use SMTP (Gmail works fine locally)
-    if (!env.SMTP_USER || !env.SMTP_PASS) {
-      throw new Error(
-        'No email provider configured. Set RESEND_API_KEY (production) ' +
-        'or SMTP_USER + SMTP_PASS (local development) in your .env file.'
-      );
-    }
+  } else if (env.SMTP_USER && env.SMTP_PASS) {
+    // Local dev only: SMTP (blocked on Render free tier)
     await sendViaSMTP(to, subject, text, from);
+  } else {
+    throw new Error(
+      'No email provider configured. Set GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + ' +
+      'GMAIL_REFRESH_TOKEN (production) or SMTP_USER + SMTP_PASS (local dev).'
+    );
   }
 };

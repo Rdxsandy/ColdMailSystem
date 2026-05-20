@@ -11,7 +11,12 @@ export const env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
   SESSION_SECRET: process.env.SESSION_SECRET || 'secret',
   JWT_SECRET: process.env.JWT_SECRET || process.env.SESSION_SECRET || 'jwt-secret',
-  // Resend HTTP API — replaces nodemailer/SMTP (Render blocks outbound SMTP ports)
+  // Gmail API (OAuth2 over HTTPS) — works on Render free tier, completely free
+  GMAIL_CLIENT_ID: process.env.GMAIL_CLIENT_ID as string | undefined,
+  GMAIL_CLIENT_SECRET: process.env.GMAIL_CLIENT_SECRET as string | undefined,
+  GMAIL_REFRESH_TOKEN: process.env.GMAIL_REFRESH_TOKEN as string | undefined,
+  GMAIL_USER: process.env.GMAIL_USER as string | undefined,
+  // Resend HTTP API — fallback if Gmail API not configured
   RESEND_API_KEY: process.env.RESEND_API_KEY as string | undefined,
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL as string | undefined,
   // Legacy SMTP vars kept for reference (not used in production)
