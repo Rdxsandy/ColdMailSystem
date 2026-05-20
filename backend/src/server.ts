@@ -5,7 +5,6 @@ import passport from './config/passport';
 import { env } from './config/env';
 import authRoutes from './routes/authRoutes';
 import emailRoutes from './routes/emailRoutes';
-import './workers/emailWorker'; // Initialize worker
 
 const app = express();
 
@@ -50,10 +49,25 @@ app.use(passport.session());
 app.use('/auth', authRoutes);
 app.use('/emails', emailRoutes);
 
+// Health check — always responds immediately so Render knows the server is up
 app.get('/health', (req: import('express').Request, res: import('express').Response) => {
   res.json({ status: 'ok' });
 });
 
-app.listen(env.PORT, () => {
+// Start HTTP server first — this MUST happen before any blocking I/O
+const server = app.listen(env.PORT, () => {
   console.log(`Server is running on port ${env.PORT}`);
+
+  // Initialize the BullMQ worker AFTER the HTTP server is listening.
+  // This ensures Render's health-check passes even if Redis is slow to connect.
+  try {
+    require('./workers/emailWorker');
+    console.log('[Server] Email worker initialized');
+  } catch (err: any) {
+    // Worker failed to start (e.g. no Redis) — log it but keep serving HTTP
+    console.error('[Server] Email worker failed to initialize:', err.message);
+    console.warn('[Server] Scheduled/queued emails will not be processed until Redis is available');
+  }
 });
+
+export default app;
