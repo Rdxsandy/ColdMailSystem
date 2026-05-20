@@ -6,44 +6,41 @@ import { env } from '../config/env';
 // changes (redeploy) are always picked up. The overhead is negligible.
 
 const createTransporter = () => {
-  const smtpHost = env.SMTP_HOST || '';
   const smtpUser = env.SMTP_USER || '';
   const smtpPass = env.SMTP_PASS || '';
-  const smtpPort = env.SMTP_PORT || 587;
 
   // Validate that real credentials are configured
   if (!smtpUser || !smtpPass) {
     console.error('[SMTP] WARNING: SMTP_USER or SMTP_PASS is not set! Emails will fail.');
   }
 
-  const isGmail = smtpHost.includes('gmail') || smtpHost === '';
+  // Determine effective host/port — default to Gmail on 587 if not set
+  const smtpHost = (env.SMTP_HOST && env.SMTP_HOST !== 'smtp.ethereal.email')
+    ? env.SMTP_HOST
+    : 'smtp.gmail.com';
+  const smtpPort = env.SMTP_PORT === 465 ? 587 : (env.SMTP_PORT || 587);
+  // port 465 (SMTPS) is BLOCKED on Render free tier — always use 587 (STARTTLS)
 
-  if (isGmail) {
-    console.log(`[SMTP] Using Gmail service for ${smtpUser}`);
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass, // Must be a Gmail App Password (not your Google login password)
-      },
-      connectionTimeout: 15000,
-      socketTimeout: 15000,
-    });
-  }
+  console.log(`[SMTP] Connecting to ${smtpHost}:${smtpPort} as ${smtpUser}`);
 
-  // Generic SMTP (SendGrid, Brevo, Mailgun, etc.)
-  const secure = smtpPort === 465;
-  console.log(`[SMTP] Using ${smtpHost}:${smtpPort} (secure=${secure}) for ${smtpUser}`);
+  // IMPORTANT: Do NOT use nodemailer's `service: 'gmail'` shorthand.
+  // It resolves to an IPv6 address + port 465, both of which are blocked on Render.
+  // Instead we use the explicit host with port 587 (STARTTLS) and force IPv4 (family: 4).
   return nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure,
-    requireTLS: !secure, // Force STARTTLS on port 587
-    connectionTimeout: 15000,
-    socketTimeout: 15000,
+    secure: false,       // false = STARTTLS (port 587); true would be SSL (port 465, blocked)
+    requireTLS: true,    // Enforce STARTTLS — reject if server doesn't support it
+    family: 4,           // Force IPv4 — Render free tier has unreliable IPv6 routing
+    connectionTimeout: 20000,
+    socketTimeout: 20000,
+    greetingTimeout: 10000,
     auth: {
       user: smtpUser,
-      pass: smtpPass,
+      pass: smtpPass,    // Must be a Gmail App Password, NOT your Google account password
+    },
+    tls: {
+      rejectUnauthorized: true,
     },
   });
 };
